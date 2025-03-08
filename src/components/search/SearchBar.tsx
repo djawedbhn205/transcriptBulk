@@ -80,9 +80,9 @@ const SearchBar = ({ onSearch, initialValue = '', showAdvanced = false }: Search
                   className="w-full p-2 text-sm rounded-lg border border-border bg-background focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                 >
                   <option value="any">Any</option>
-                  <option value="short">Short (< 4 minutes)</option>
+                  <option value="short">Short (&lt; 4 minutes)</option>
                   <option value="medium">Medium (4-20 minutes)</option>
-                  <option value="long">Long (> 20 minutes)</option>
+                  <option value="long">Long (&gt; 20 minutes)</option>
                 </select>
               </div>
 
