@@ -2,9 +2,6 @@
 import { toast } from 'sonner';
 import { VideoData } from '../components/video/VideoCard';
 
-// Mock API key - In a real application, this would be securely managed
-const API_KEY = "DEMO_KEY"; 
-
 interface SearchResults {
   videos: VideoData[];
   nextPageToken?: string;
@@ -24,6 +21,28 @@ export interface DownloadResponse {
 }
 
 class YoutubeService {
+  private apiKey: string = '';
+  
+  setApiKey(key: string): void {
+    this.apiKey = key;
+    localStorage.setItem('youtube_api_key', key);
+    toast.success('API Key set successfully');
+  }
+  
+  getApiKey(): string {
+    if (!this.apiKey) {
+      // Try to load from localStorage
+      const savedKey = localStorage.getItem('youtube_api_key');
+      if (savedKey) {
+        this.apiKey = savedKey;
+      }
+    }
+    return this.apiKey;
+  }
+  
+  hasApiKey(): boolean {
+    return !!this.getApiKey();
+  }
   
   // Search for videos with transcripts
   async searchVideos(
@@ -34,6 +53,11 @@ class YoutubeService {
     duration: string = 'any'
   ): Promise<SearchResults> {
     try {
+      if (!this.hasApiKey()) {
+        toast.error('Please set your YouTube API key first');
+        return { videos: [] };
+      }
+      
       // In a real application, this would make an actual API call
       // For now, we'll simulate the response with mock data
       
@@ -62,6 +86,11 @@ class YoutubeService {
   // Download transcripts for selected videos
   async downloadTranscripts(videoIds: string[]): Promise<DownloadResponse> {
     try {
+      if (!this.hasApiKey()) {
+        toast.error('Please set your YouTube API key first');
+        throw new Error('API key not set');
+      }
+      
       // In a real application, this would make an actual API call
       // For now, we'll simulate the response
       

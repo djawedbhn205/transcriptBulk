@@ -1,39 +1,44 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import HeaderActions from './HeaderActions';
+
+const navItems = [
+  { name: 'Home', path: '/' },
+  { name: 'Search', path: '/search' },
+  { name: 'About', path: '/about' },
+];
 
 const Header = () => {
+  const location = useLocation();
+  
   return (
-    <motion.header 
-      className="fixed top-0 left-0 right-0 h-16 glass z-50"
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <div className="container h-full flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-          <div className="h-9 w-9 bg-primary rounded-lg flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path 
-                d="M21 5H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1zm-1 11h-8v-2h-2v2H4V7h16v9z" 
-                fill="white"
-              />
-              <path d="M10 9H8v2h2V9zm4 0h-2v2h2V9zm4 0h-2v2h2V9z" fill="white" />
-            </svg>
-          </div>
-          <span className="font-semibold text-base text-foreground">Transcript</span>
-        </Link>
+    <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30">
+      <div className="container max-w-7xl flex h-16 items-center justify-between">
+        <div className="flex items-center gap-6 md:gap-10">
+          <Link to="/" className="flex items-center gap-2">
+            <span className="font-bold text-lg tracking-tight">YouTube Transcript Tool</span>
+          </Link>
+          <nav className="hidden md:flex gap-6">
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  location.pathname === item.path ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                {item.name}
+              </Link>
+            ))}
+          </nav>
+        </div>
         
-        <nav className="hidden md:flex">
-          <ul className="flex space-x-6">
-            <li><Link to="/" className="text-sm font-medium opacity-70 hover:opacity-100 transition-opacity">Home</Link></li>
-            <li><Link to="/search" className="text-sm font-medium opacity-70 hover:opacity-100 transition-opacity">Search</Link></li>
-            <li><Link to="/about" className="text-sm font-medium opacity-70 hover:opacity-100 transition-opacity">About</Link></li>
-          </ul>
-        </nav>
+        <HeaderActions />
       </div>
-    </motion.header>
+    </header>
   );
 };
 
