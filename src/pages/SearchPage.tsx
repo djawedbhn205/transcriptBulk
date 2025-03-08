@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/layout/Layout';
-import SearchBar from '../components/search/SearchBar';
+import SearchBar, { SearchOptions } from '../components/search/SearchBar';
 import VideoGrid from '../components/video/VideoGrid';
 import { VideoData } from '../components/video/VideoCard';
 import YoutubeService from '../services/YoutubeService';
@@ -19,14 +19,19 @@ const SearchPage = () => {
   const [videos, setVideos] = useState<VideoData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [downloadResults, setDownloadResults] = useState<{folderPath: string, results: any[]} | null>(null);
+  const [searchOptions, setSearchOptions] = useState<SearchOptions>({
+    maxResults: 25,
+    order: 'relevance',
+    duration: 'any'
+  });
   
   useEffect(() => {
     if (query && YoutubeService.hasApiKey()) {
-      handleSearch(query);
+      handleSearch(query, searchOptions);
     }
   }, [query]);
   
-  const handleSearch = async (searchQuery: string) => {
+  const handleSearch = async (searchQuery: string, options?: SearchOptions) => {
     if (!searchQuery.trim()) return;
     
     if (!YoutubeService.hasApiKey()) {
@@ -43,7 +48,19 @@ const SearchPage = () => {
         navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
       }
       
-      const results = await YoutubeService.searchVideos(searchQuery);
+      // Save the options for later use
+      if (options) {
+        setSearchOptions(options);
+      }
+      
+      const results = await YoutubeService.searchVideos(
+        searchQuery,
+        options?.maxResults || 25,
+        false,
+        options?.order || 'relevance',
+        options?.duration || 'any'
+      );
+      
       setVideos(results.videos);
       
       if (results.videos.length === 0) {

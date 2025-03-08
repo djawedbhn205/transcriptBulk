@@ -1,13 +1,18 @@
-
 import React, { useState, useEffect } from 'react';
 import { Search, SlidersHorizontal, X, Clock, Eye, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface SearchBarProps {
-  onSearch: (query: string) => void;
+  onSearch: (query: string, options?: SearchOptions) => void;
   initialValue?: string;
   showAdvanced?: boolean;
+}
+
+export interface SearchOptions {
+  maxResults?: number;
+  order?: string;
+  duration?: string;
 }
 
 const SearchBar = ({ onSearch, initialValue = '', showAdvanced = false }: SearchBarProps) => {
@@ -15,6 +20,11 @@ const SearchBar = ({ onSearch, initialValue = '', showAdvanced = false }: Search
   const [isExpanded, setIsExpanded] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [showRecent, setShowRecent] = useState(false);
+  const [searchOptions, setSearchOptions] = useState<SearchOptions>({
+    maxResults: 25,
+    order: 'relevance',
+    duration: 'any'
+  });
 
   useEffect(() => {
     // Load recent searches from localStorage on component mount
@@ -41,14 +51,14 @@ const SearchBar = ({ onSearch, initialValue = '', showAdvanced = false }: Search
       setRecentSearches(newRecentSearches);
       localStorage.setItem('recentSearches', JSON.stringify(newRecentSearches));
       setShowRecent(false);
-      onSearch(query);
+      onSearch(query, searchOptions);
     }
   };
 
   const selectRecentSearch = (search: string) => {
     setQuery(search);
     setShowRecent(false);
-    onSearch(search);
+    onSearch(search, searchOptions);
   };
 
   const clearInput = () => {
@@ -58,6 +68,14 @@ const SearchBar = ({ onSearch, initialValue = '', showAdvanced = false }: Search
 
   const toggleAdvanced = () => {
     setIsExpanded(!isExpanded);
+  };
+
+  const handleOptionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { id, value } = e.target;
+    setSearchOptions(prev => ({
+      ...prev,
+      [id]: id === 'maxResults' ? parseInt(value) : value
+    }));
   };
 
   return (
@@ -157,11 +175,13 @@ const SearchBar = ({ onSearch, initialValue = '', showAdvanced = false }: Search
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="sort" className="block text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <label htmlFor="order" className="block text-xs font-medium text-muted-foreground flex items-center gap-1">
                     <Eye className="h-3.5 w-3.5" /> Sort By
                   </label>
                   <select 
-                    id="sort"
+                    id="order"
+                    value={searchOptions.order}
+                    onChange={handleOptionChange}
                     className="w-full p-2 text-sm rounded-lg border border-border bg-background focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                   >
                     <option value="relevance">Relevance</option>
@@ -177,6 +197,8 @@ const SearchBar = ({ onSearch, initialValue = '', showAdvanced = false }: Search
                   </label>
                   <select 
                     id="duration" 
+                    value={searchOptions.duration}
+                    onChange={handleOptionChange}
                     className="w-full p-2 text-sm rounded-lg border border-border bg-background focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                   >
                     <option value="any">Any</option>
@@ -187,11 +209,13 @@ const SearchBar = ({ onSearch, initialValue = '', showAdvanced = false }: Search
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="results" className="block text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <label htmlFor="maxResults" className="block text-xs font-medium text-muted-foreground flex items-center gap-1">
                     <Calendar className="h-3.5 w-3.5" /> Results
                   </label>
                   <select 
-                    id="results" 
+                    id="maxResults" 
+                    value={searchOptions.maxResults}
+                    onChange={handleOptionChange}
                     className="w-full p-2 text-sm rounded-lg border border-border bg-background focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                   >
                     <option value="10">10 results</option>
