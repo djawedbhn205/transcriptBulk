@@ -1,7 +1,7 @@
 
-import React from 'react';
-import { Check, X, FileText, ExternalLink } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { Check, X, FileText, ExternalLink, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface TranscriptResult {
   videoId: string;
@@ -9,6 +9,7 @@ interface TranscriptResult {
   filename: string;
   path: string;
   success: boolean;
+  transcript?: string;
 }
 
 interface TranscriptResultsProps {
@@ -18,6 +19,34 @@ interface TranscriptResultsProps {
 
 const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
   const successCount = results.filter(r => r.success).length;
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  
+  const toggleExpand = (videoId: string) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [videoId]: !prev[videoId]
+    }));
+  };
+  
+  const handleDownloadAgain = (result: TranscriptResult) => {
+    if (!result.transcript) return;
+    
+    // Create a blob with the transcript content
+    const blob = new Blob([result.transcript], { type: 'text/plain' });
+    
+    // Create a download link and trigger it
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = result.filename;
+    document.body.appendChild(a);
+    a.click();
+    
+    // Clean up
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
   
   return (
     <motion.div
@@ -25,7 +54,7 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-8"
     >
-      <div className="p-6 rounded-xl neo-glass space-y-4">
+      <div className="p-6 rounded-xl bg-card border border-border space-y-4">
         <h2 className="text-xl font-semibold mb-4">Download Results</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -46,8 +75,13 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
         </div>
         
         <div className="mt-4 p-4 rounded-lg border border-border bg-secondary">
-          <h3 className="text-sm font-medium mb-1">Saved to:</h3>
-          <p className="text-sm font-mono bg-white/50 p-2 rounded break-all">{folderPath}</p>
+          <h3 className="text-sm font-medium mb-1">Download Information:</h3>
+          <p className="text-sm text-muted-foreground">
+            All transcript files have been downloaded to your downloads folder as <code className="text-xs bg-background p-1 rounded">.txt</code> files.
+          </p>
+          <p className="text-sm mt-2 text-muted-foreground">
+            You can download individual transcripts again by clicking the download button next to each video.
+          </p>
         </div>
       </div>
       
@@ -56,35 +90,100 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
         
         <div className="divide-y divide-border border rounded-xl overflow-hidden">
           {results.map((result, index) => (
-            <div key={index} className="flex items-start p-4 gap-3 bg-white">
-              <div className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
-                result.success ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-              }`}>
-                {result.success ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-medium line-clamp-1">{result.title}</h4>
-                <div className="flex items-center gap-2 mt-1">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{result.filename}</span>
+            <div key={index} className="flex flex-col bg-card">
+              <div className="flex items-start p-4 gap-3">
+                <div className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
+                  result.success ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}>
+                  {result.success ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-medium line-clamp-1">{result.title}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{result.filename}</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {result.success && (
+                    <button
+                      onClick={() => handleDownloadAgain(result)}
+                      className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                      aria-label="Download again"
+                    >
+                      <Download className="h-4 w-4 text-primary" />
+                    </button>
+                  )}
+                  
+                  <a 
+                    href={`https://www.youtube.com/watch?v=${result.videoId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  </a>
+                  
+                  {result.success && (
+                    <button
+                      onClick={() => toggleExpand(result.videoId)}
+                      className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                      aria-label={expandedItems[result.videoId] ? "Hide transcript preview" : "Show transcript preview"}
+                    >
+                      {expandedItems[result.videoId] ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
               
-              <a 
-                href={`https://www.youtube.com/watch?v=${result.videoId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-shrink-0 text-primary hover:text-primary/80"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </a>
+              <AnimatePresence>
+                {expandedItems[result.videoId] && result.transcript && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-4">
+                      <div className="bg-muted p-3 rounded-md max-h-60 overflow-y-auto">
+                        <pre className="text-xs whitespace-pre-wrap">{result.transcript.substring(0, 500)}...</pre>
+                        <div className="flex justify-end mt-2">
+                          <button
+                            onClick={() => handleDownloadAgain(result)}
+                            className="text-xs text-primary flex items-center gap-1"
+                          >
+                            <Download className="h-3 w-3" /> Download Full Transcript
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ))}
         </div>
       </div>
+      
+      {results.length > 0 && !results.every(r => r.success) && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <h3 className="text-sm font-medium text-amber-800 mb-2">Some transcripts could not be downloaded</h3>
+          <p className="text-xs text-amber-700">
+            This could be due to unavailable transcripts, private videos, or API limitations. 
+            You can try again later or check directly on YouTube if transcripts are available.
+          </p>
+        </div>
+      )}
     </motion.div>
   );
 };
 
 export default TranscriptResult;
+
