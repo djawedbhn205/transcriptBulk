@@ -59,16 +59,6 @@ interface YoutubeCaptionResponse {
   }[];
 }
 
-interface CaptionContent {
-  events: {
-    tStartMs: number;
-    dDurationMs: number;
-    segs: {
-      utf8: string;
-    }[];
-  }[];
-}
-
 class YoutubeService {
   private apiKey: string = '';
   private YT_API_URL = 'https://www.googleapis.com/youtube/v3';
@@ -194,6 +184,8 @@ class YoutubeService {
       const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const folderName = `${sanitizedQuery}_${timestamp}`;
       
+      console.log(`Creating folder: ${folderName} for storing transcripts`);
+      
       // Get video details to get the actual titles
       const videoDetailsUrl = `${this.YT_API_URL}/videos?part=snippet&id=${videoIds.join(',')}&key=${this.apiKey}`;
       const videoDetailsResponse = await axios.get(videoDetailsUrl);
@@ -211,10 +203,13 @@ class YoutubeService {
             const safeTitle = this.sanitizeFilename(title);
             const filename = `${safeTitle}_${id}.txt`;
             
-            // Get the transcript data for this video using captions API
-            const transcriptData = await this.fetchTranscriptWithCaptionsAPI(id);
+            console.log(`Fetching transcript for video: ${title} (${id})`);
             
-            if (!transcriptData) {
+            // Get the transcript data for this video - try multiple methods
+            const transcriptContent = await this.fetchTranscript(id);
+            
+            if (!transcriptContent) {
+              console.log(`No transcript found for video ${id}`);
               return {
                 videoId: id,
                 title,
@@ -224,8 +219,10 @@ class YoutubeService {
               };
             }
             
+            console.log(`Successfully retrieved transcript for ${id}, length: ${transcriptContent.length} chars`);
+            
             // Create a blob with the transcript content
-            const blob = new Blob([transcriptData], { type: 'text/plain' });
+            const blob = new Blob([transcriptContent], { type: 'text/plain' });
             
             // Create a download link and trigger it
             const url = window.URL.createObjectURL(blob);
@@ -246,7 +243,7 @@ class YoutubeService {
               filename,
               path: `/${folderName}/${filename}`,
               success: true,
-              transcript: transcriptData
+              transcript: transcriptContent
             };
           } catch (error) {
             console.error(`Error downloading transcript for video ${id}:`, error);
@@ -280,17 +277,52 @@ class YoutubeService {
     }
   }
 
+  // Main transcript fetching method that tries multiple approaches
+  private async fetchTranscript(videoId: string): Promise<string | null> {
+    console.log(`Attempting to fetch transcript for video ${videoId} using multiple methods`);
+    
+    try {
+      // First try: Use YouTube Captions API
+      const captionsResult = await this.fetchTranscriptWithCaptionsAPI(videoId);
+      if (captionsResult) {
+        console.log(`Successfully fetched transcript with Captions API for ${videoId}`);
+        return captionsResult;
+      }
+      
+      // Second try: Use third-party API
+      const thirdPartyResult = await this.fetchTranscriptFromThirdParty(videoId);
+      if (thirdPartyResult) {
+        console.log(`Successfully fetched transcript with third-party API for ${videoId}`);
+        return thirdPartyResult;
+      }
+      
+      // Third try: Use YouTube's timedtext API
+      const timedTextResult = await this.fetchTranscriptFromTimedText(videoId);
+      if (timedTextResult) {
+        console.log(`Successfully fetched transcript with timedtext API for ${videoId}`);
+        return timedTextResult;
+      }
+      
+      // If all methods fail, return null
+      console.log(`All transcript fetch methods failed for ${videoId}`);
+      return null;
+    } catch (error) {
+      console.error(`All transcript fetching methods failed for video ${videoId}:`, error);
+      return null;
+    }
+  }
+
   // Fetch transcript using YouTube Captions API
   private async fetchTranscriptWithCaptionsAPI(videoId: string): Promise<string | null> {
     try {
+      console.log(`Fetching captions list for video ${videoId} using YouTube Captions API`);
       // First, list the available captions for the video
       const captionsListUrl = `${this.YT_API_URL}/captions?videoId=${videoId}&part=snippet&key=${this.apiKey}`;
       const captionsResponse = await axios.get<YoutubeCaptionResponse>(captionsListUrl);
       
       if (!captionsResponse.data.items || captionsResponse.data.items.length === 0) {
-        console.log(`No captions found for video ${videoId}, trying alternative methods`);
-        // If no captions available through the API, try alternative methods
-        return this.fetchTranscriptFromThirdParty(videoId);
+        console.log(`No captions found via Captions API for video ${videoId}`);
+        return null;
       }
       
       // Prefer English captions if available
@@ -301,66 +333,87 @@ class YoutubeService {
       
       if (englishCaption) {
         captionId = englishCaption.id;
+        console.log(`Found English caption with id ${captionId}`);
       } else {
         // Otherwise use the first available caption
         captionId = captionsResponse.data.items[0].id;
+        console.log(`No English caption found, using first available caption with id ${captionId}`);
       }
       
-      // Download the actual caption content
-      // Note: The captions.download endpoint requires OAuth 2.0 authentication
-      // Since we're using an API key only, we'll use an alternative method
+      // The captions.download endpoint requires OAuth, so we use alternative methods
+      // Here we would try to download using the captionId, but we need to use alternative methods
       
-      return this.fetchTranscriptFromThirdParty(videoId);
+      console.log(`Caption API found captions, but can't download directly with API key. Using alternative methods.`);
+      return null;
       
     } catch (error) {
       console.error(`Error fetching captions with API for video ${videoId}:`, error);
-      // Try alternative method if the Captions API fails
-      return this.fetchTranscriptFromThirdParty(videoId);
+      return null;
     }
   }
 
-  // Fetch transcript from a third-party service
+  // Fetch transcript from a third-party API service
   private async fetchTranscriptFromThirdParty(videoId: string): Promise<string | null> {
     try {
+      console.log(`Trying third-party API to get transcript for ${videoId}`);
       // Using a third-party API to get transcript data
       const response = await axios.get(`https://ytapi-transcript.vercel.app/api?videoId=${videoId}`);
       
       if (response.data && response.data.transcript && response.data.transcript.length > 0) {
-        return this.cleanTranscript(response.data.transcript);
+        console.log(`Third-party API returned transcript with ${response.data.transcript.length} items`);
+        const cleanedTranscript = this.cleanTranscript(response.data.transcript);
+        return cleanedTranscript;
       }
       
-      // If the third-party API fails, try YouTube's own timedtext API (does not require API key)
-      try {
-        const timedTextResponse = await axios.get(
-          `https://www.youtube.com/api/timedtext?lang=en&v=${videoId}`,
-          { responseType: 'text' }
-        );
-        
-        if (timedTextResponse.data) {
-          // Parse the XML response to extract text
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(timedTextResponse.data, "text/xml");
-          const textElements = xmlDoc.getElementsByTagName("text");
-          
-          let fullText = "";
-          for (let i = 0; i < textElements.length; i++) {
-            fullText += textElements[i].textContent + " ";
-          }
-          
-          return fullText.trim();
-        }
-      } catch (timedTextError) {
-        console.error(`Error with timedtext API for ${videoId}:`, timedTextError);
-      }
-      
-      // As a last resort, use simulated transcript
-      return this.generateSimulatedTranscript(videoId);
+      console.log(`Third-party API returned no transcript for ${videoId}`);
+      return null;
       
     } catch (error) {
       console.error(`Error fetching transcript from third-party for video ${videoId}:`, error);
+      return null;
+    }
+  }
+  
+  // Fetch transcript from YouTube's timedtext API (works without API key)
+  private async fetchTranscriptFromTimedText(videoId: string): Promise<string | null> {
+    try {
+      console.log(`Trying YouTube timedtext API for ${videoId}`);
+      const timedTextResponse = await axios.get(
+        `https://www.youtube.com/api/timedtext?lang=en&v=${videoId}`,
+        { responseType: 'text' }
+      );
       
-      // Last resort: simulated transcript
-      return this.generateSimulatedTranscript(videoId);
+      if (timedTextResponse.data) {
+        console.log(`Timedtext API returned data for ${videoId}`);
+        // Parse the XML response to extract text
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(timedTextResponse.data, "text/xml");
+        const textElements = xmlDoc.getElementsByTagName("text");
+        
+        if (textElements.length === 0) {
+          console.log(`No text elements found in timedtext response for ${videoId}`);
+          return null;
+        }
+        
+        console.log(`Found ${textElements.length} text elements in timedtext response`);
+        
+        let fullText = "";
+        for (let i = 0; i < textElements.length; i++) {
+          const text = textElements[i].textContent || "";
+          // Decode HTML entities
+          const decodedText = this.decodeHtmlEntities(text);
+          fullText += decodedText + " ";
+        }
+        
+        return fullText.trim();
+      }
+      
+      console.log(`Timedtext API returned no data for ${videoId}`);
+      return null;
+      
+    } catch (error) {
+      console.error(`Error with timedtext API for ${videoId}:`, error);
+      return null;
     }
   }
   
@@ -371,7 +424,10 @@ class YoutubeService {
     }
     
     // Extract only the text from each transcript item and join them with spaces
-    const fullText = transcriptItems.map(item => item.text.trim()).join(' ');
+    const fullText = transcriptItems.map(item => {
+      // Decode HTML entities if present
+      return this.decodeHtmlEntities(item.text.trim());
+    }).join(' ');
     
     // Clean up any extra spaces or line breaks
     return fullText
@@ -379,58 +435,14 @@ class YoutubeService {
       .trim();
   }
   
-  // Generate simulated transcript items for demo purposes (as a fallback)
-  private async generateSimulatedTranscriptItems(videoId: string): Promise<any[]> {
-    try {
-      // Get video details to simulate a more realistic transcript
-      const videoDetailsUrl = `${this.YT_API_URL}/videos?part=snippet&id=${videoId}&key=${this.apiKey}`;
-      const videoDetailsResponse = await axios.get(videoDetailsUrl);
-      
-      if (!videoDetailsResponse.data.items || videoDetailsResponse.data.items.length === 0) {
-        return [];
-      }
-      
-      const videoDetails = videoDetailsResponse.data.items[0];
-      const title = videoDetails.snippet.title;
-      const description = videoDetails.snippet.description || '';
-      
-      // Build sample transcript items based on video metadata
-      const keywords = `${title} ${description}`.split(' ');
-      const transcriptItems: any[] = [];
-      let currentTime = 0;
-      
-      // Generate 30 transcript items
-      for (let i = 0; i < 30; i++) {
-        const randomWords = [];
-        const wordCount = Math.floor(Math.random() * 10) + 5;
-        
-        for (let j = 0; j < wordCount; j++) {
-          const randomIndex = Math.floor(Math.random() * keywords.length);
-          randomWords.push(keywords[randomIndex]);
-        }
-        
-        const duration = Math.floor(Math.random() * 5) + 2;
-        
-        transcriptItems.push({
-          text: randomWords.join(' ') + '.',
-          start: currentTime,
-          duration
-        });
-        
-        currentTime += duration;
-      }
-      
-      return transcriptItems;
-    } catch (error) {
-      console.error(`Error generating simulated transcript for video ${videoId}:`, error);
-      return [];
-    }
-  }
-  
-  // Generate a simulated transcript for demo purposes (as a fallback)
-  private async generateSimulatedTranscript(videoId: string): Promise<string> {
-    const transcriptItems = await this.generateSimulatedTranscriptItems(videoId);
-    return this.cleanTranscript(transcriptItems);
+  // Helper function to decode HTML entities
+  private decodeHtmlEntities(text: string): string {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    // Get decoded text
+    const decoded = textarea.value;
+    // Remove any HTML tags
+    return decoded.replace(/<[^>]*>/g, '');
   }
   
   // Helper function to sanitize filenames

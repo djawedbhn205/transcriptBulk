@@ -76,13 +76,19 @@ const SearchPage = () => {
   
   const handleDownload = async (videoIds: string[]) => {
     setIsLoading(true);
+    toast.info(`Preparing to download transcripts for ${videoIds.length} videos...`);
     
     try {
+      console.log(`Starting transcript download for ${videoIds.length} videos with search query: "${query}"`);
       const results = await YoutubeService.downloadTranscripts(videoIds, query);
       setDownloadResults(results);
       
       const successCount = results.results.filter(r => r.success).length;
-      toast.success(`Successfully downloaded ${successCount} transcripts to folder: ${results.folderPath}`);
+      if (successCount > 0) {
+        toast.success(`Successfully downloaded ${successCount} transcripts to folder: ${results.folderPath}`);
+      } else {
+        toast.error('Failed to download any transcripts. Please try different videos.');
+      }
     } catch (error) {
       console.error('Download error:', error);
       toast.error('An error occurred while downloading transcripts. Please try again.');
