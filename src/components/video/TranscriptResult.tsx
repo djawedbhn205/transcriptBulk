@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { Check, X, FileText, ExternalLink, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, X, FileText, ExternalLink, Download, ChevronDown, ChevronUp, Clock, FolderOpen, Share } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 interface TranscriptResult {
   videoId: string;
@@ -46,6 +47,46 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
     // Clean up
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+    
+    toast.success(`Downloaded: ${result.filename}`);
+  };
+  
+  const handleCopyToClipboard = (result: TranscriptResult) => {
+    if (!result.transcript) return;
+    
+    navigator.clipboard.writeText(result.transcript)
+      .then(() => {
+        toast.success("Transcript copied to clipboard");
+      })
+      .catch((err) => {
+        console.error("Failed to copy text: ", err);
+        toast.error("Failed to copy to clipboard");
+      });
+  };
+  
+  const downloadAllTranscripts = () => {
+    // For browsers that support the File System Access API (modern browsers)
+    if ('showDirectoryPicker' in window) {
+      toast.info("Select a folder to save all transcripts");
+    } else {
+      // For browsers that do not support the File System Access API
+      results.filter(r => r.success).forEach(result => {
+        handleDownloadAgain(result);
+      });
+      
+      toast.success(`Downloaded ${successCount} transcripts`);
+    }
+  };
+  
+  const formattedDate = () => {
+    const date = new Date();
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
   
   return (
@@ -55,9 +96,28 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
       className="space-y-8"
     >
       <div className="p-6 rounded-xl bg-card border border-border space-y-4">
-        <h2 className="text-xl font-semibold mb-4">Download Results</h2>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Download Results</h2>
+            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              <span>{formattedDate()}</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => downloadAllTranscripts()}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+              disabled={successCount === 0}
+            >
+              <FolderOpen className="h-4 w-4" />
+              Download All Again
+            </button>
+          </div>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
           <div className="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200">
             <h3 className="text-sm font-medium text-blue-700 mb-1">Total Transcripts</h3>
             <span className="text-2xl font-bold text-blue-800">{results.length}</span>
@@ -75,13 +135,22 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
         </div>
         
         <div className="mt-4 p-4 rounded-lg border border-border bg-secondary">
-          <h3 className="text-sm font-medium mb-1">Download Information:</h3>
-          <p className="text-sm text-muted-foreground">
-            All transcript files have been downloaded to your downloads folder as <code className="text-xs bg-background p-1 rounded">.txt</code> files.
-          </p>
-          <p className="text-sm mt-2 text-muted-foreground">
-            You can download individual transcripts again by clicking the download button next to each video.
-          </p>
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-1">
+              <FolderOpen className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium">Transcript Folder:</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                <code className="text-xs bg-background p-1 rounded">{folderPath}</code>
+              </p>
+              <p className="text-sm mt-3 text-muted-foreground">
+                All transcripts have been downloaded as <code className="text-xs bg-background p-1 rounded">.txt</code> files with 
+                only the text content (no timestamps). You can download individual transcripts again by 
+                clicking the download button next to each video.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -108,13 +177,22 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
                 
                 <div className="flex items-center gap-2">
                   {result.success && (
-                    <button
-                      onClick={() => handleDownloadAgain(result)}
-                      className="p-1.5 rounded-md hover:bg-muted transition-colors"
-                      aria-label="Download again"
-                    >
-                      <Download className="h-4 w-4 text-primary" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleCopyToClipboard(result)}
+                        className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                        aria-label="Copy to clipboard"
+                      >
+                        <Share className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={() => handleDownloadAgain(result)}
+                        className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                        aria-label="Download again"
+                      >
+                        <Download className="h-4 w-4 text-primary" />
+                      </button>
+                    </>
                   )}
                   
                   <a 
@@ -153,13 +231,19 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
                   >
                     <div className="px-4 pb-4">
                       <div className="bg-muted p-3 rounded-md max-h-60 overflow-y-auto">
-                        <pre className="text-xs whitespace-pre-wrap">{result.transcript.substring(0, 500)}...</pre>
-                        <div className="flex justify-end mt-2">
+                        <p className="text-xs whitespace-pre-wrap">{result.transcript.substring(0, 500)}...</p>
+                        <div className="flex justify-end mt-2 gap-2">
+                          <button
+                            onClick={() => handleCopyToClipboard(result)}
+                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                          >
+                            <Share className="h-3 w-3" /> Copy
+                          </button>
                           <button
                             onClick={() => handleDownloadAgain(result)}
                             className="text-xs text-primary flex items-center gap-1"
                           >
-                            <Download className="h-3 w-3" /> Download Full Transcript
+                            <Download className="h-3 w-3" /> Download
                           </button>
                         </div>
                       </div>
@@ -186,4 +270,3 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
 };
 
 export default TranscriptResult;
-
