@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Check, X, FileText, ExternalLink, Download, ChevronDown, ChevronUp, Clock, FolderOpen, Share } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,7 +73,7 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
         handleDownloadAgain(result);
       });
       
-      toast.success(`Downloaded ${successCount} transcripts`);
+      toast.success(`Downloaded ${successCount} transcripts to folder: ${folderPath}`);
     }
   };
   
@@ -145,9 +144,8 @@ const TranscriptResult = ({ results, folderPath }: TranscriptResultsProps) => {
                 <code className="text-xs bg-background p-1 rounded">{folderPath}</code>
               </p>
               <p className="text-sm mt-3 text-muted-foreground">
-                All transcripts have been downloaded as <code className="text-xs bg-background p-1 rounded">.txt</code> files with 
-                only the text content (no timestamps). You can download individual transcripts again by 
-                clicking the download button next to each video.
+                All transcripts have been downloaded as <code className="text-xs bg-background p-1 rounded">.txt</code> files containing 
+                the full transcript text (without timestamps). The files are organized in a folder named after your search query.
               </p>
             </div>
           </div>

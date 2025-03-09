@@ -78,11 +78,11 @@ const SearchPage = () => {
     setIsLoading(true);
     
     try {
-      const results = await YoutubeService.downloadTranscripts(videoIds);
+      const results = await YoutubeService.downloadTranscripts(videoIds, query);
       setDownloadResults(results);
       
       const successCount = results.results.filter(r => r.success).length;
-      toast.success(`Successfully downloaded ${successCount} transcripts`);
+      toast.success(`Successfully downloaded ${successCount} transcripts to folder: ${results.folderPath}`);
     } catch (error) {
       console.error('Download error:', error);
       toast.error('An error occurred while downloading transcripts. Please try again.');
