@@ -75,6 +75,11 @@ const SearchPage = () => {
   };
   
   const handleDownload = async (videoIds: string[]) => {
+    if (videoIds.length === 0) {
+      toast.error('Please select at least one video');
+      return;
+    }
+    
     setIsLoading(true);
     toast.info(`Preparing to download transcripts for ${videoIds.length} videos...`);
     
